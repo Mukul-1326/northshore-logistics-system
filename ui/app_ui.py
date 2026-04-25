@@ -29,11 +29,33 @@ def launch_ui():
     root.title("Northshore Logistics System")
     root.geometry("1200x700")
 
-    main = tk.Frame(root)
-    main.pack(pady=10)
+    # ===== LEFT SCROLLABLE AREA =====
+    canvas = tk.Canvas(root, width=350)
+    scrollbar = tk.Scrollbar(root, orient="vertical", command=canvas.yview)
+    left_frame = tk.Frame(canvas)
 
-    output = tk.Text(root, height=10)
-    output.pack(fill="x", padx=10, pady=10)
+    left_frame.bind(
+        "<Configure>",
+        lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+    )
+
+    canvas.create_window((0, 0), window=left_frame, anchor="nw")
+    canvas.configure(yscrollcommand=scrollbar.set)
+
+    canvas.pack(side="left", fill="y")
+    scrollbar.pack(side="left", fill="y")
+
+    # ===== RIGHT SIDE =====
+    right_frame = tk.Frame(root)
+    right_frame.pack(side="right", fill="both", expand=True, padx=10, pady=10)
+
+    # ===== REPORTS =====
+    report_frame = tk.LabelFrame(right_frame, text="Reports", padx=10, pady=10)
+    report_frame.pack(fill="x")
+
+    # ===== OUTPUT (SMALL & VISIBLE) =====
+    output = tk.Text(right_frame, height=12)   # SMALL FIXED SIZE
+    output.pack(fill="x", pady=10)
 
     def display_rows(rows):
         output.delete("1.0", tk.END)
@@ -43,23 +65,19 @@ def launch_ui():
         for r in rows:
             output.insert(tk.END, str(dict(r)) + "\n")
 
-    def create_section(parent, title):
-        frame = tk.LabelFrame(parent, text=title, padx=10, pady=10)
-        frame.pack(side="left", padx=10)
+    def create_section(title):
+        frame = tk.LabelFrame(left_frame, text=title, padx=10, pady=10)
+        frame.pack(fill="x", pady=5)
         return frame
 
     def add_field(frame, label):
         tk.Label(frame, text=label).pack(anchor="w")
         entry = tk.Entry(frame)
-        entry.pack()
+        entry.pack(fill="x")
         return entry
 
-    # ================= ROW 1 =================
-    row1 = tk.Frame(main)
-    row1.pack()
-
-    # SHIPMENT
-    shipment_frame = create_section(row1, "Shipment")
+    # ===== SHIPMENT =====
+    shipment_frame = create_section("Shipment")
 
     order = add_field(shipment_frame, "Order Ref")
     sender = add_field(shipment_frame, "Sender")
@@ -67,22 +85,17 @@ def launch_ui():
     item = add_field(shipment_frame, "Item Description")
     hub = add_field(shipment_frame, "Warehouse ID")
 
-    def add_ship():
-        try:
-            ship_id = add_shipment(
-                order.get(), sender.get(), receiver.get(),
-                item.get(), safe_int(hub.get(), "Warehouse ID")
-            )
-            messagebox.showinfo("Success", f"Shipment ID = {ship_id}")
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
+    tk.Button(shipment_frame, text="Add Shipment",
+              command=lambda: messagebox.showinfo(
+                  "Success",
+                  f"Shipment ID = {add_shipment(order.get(), sender.get(), receiver.get(), item.get(), safe_int(hub.get(),'Warehouse ID'))}"
+              )).pack(pady=3)
 
-    tk.Button(shipment_frame, text="Add Shipment", command=add_ship).pack(pady=3)
     tk.Button(shipment_frame, text="View Shipments",
               command=lambda: display_rows(get_all_shipments())).pack(pady=3)
 
-    # DELIVERY
-    delivery_frame = create_section(row1, "Delivery")
+    # ===== DELIVERY =====
+    delivery_frame = create_section("Delivery")
 
     ship_id = add_field(delivery_frame, "Shipment ID")
     drv_id = add_field(delivery_frame, "Driver ID")
@@ -90,61 +103,34 @@ def launch_ui():
     route = add_field(delivery_frame, "Route Info")
     date = add_field(delivery_frame, "Date (YYYY-MM-DD)")
 
-    def assign_del():
-        try:
-            delivery_id = assign_delivery(
-                safe_int(ship_id.get(), "Shipment ID"),
-                safe_int(drv_id.get(), "Driver ID"),
-                safe_int(veh_id.get(), "Vehicle ID"),
-                route.get(), date.get()
-            )
-            messagebox.showinfo("Success", f"Delivery ID = {delivery_id}")
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    tk.Button(delivery_frame, text="Assign Delivery", command=assign_del).pack(pady=3)
+    tk.Button(delivery_frame, text="Assign Delivery",
+              command=lambda: messagebox.showinfo(
+                  "Success",
+                  f"Delivery ID = {assign_delivery(safe_int(ship_id.get(),'Shipment ID'), safe_int(drv_id.get(),'Driver ID'), safe_int(veh_id.get(),'Vehicle ID'), route.get(), date.get())}"
+              )).pack(pady=3)
 
     delivery_id = add_field(delivery_frame, "Delivery ID")
     new_status = add_field(delivery_frame, "New Delivery Status")
 
-    def update_del():
-        try:
-            update_delivery_status(
-                safe_int(delivery_id.get(), "Delivery ID"),
-                new_status.get()
-            )
-            messagebox.showinfo("Updated", "Delivery Updated")
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
+    tk.Button(delivery_frame, text="Update Delivery Status",
+              command=lambda: update_delivery_status(
+                  safe_int(delivery_id.get(),'Delivery ID'), new_status.get()
+              )).pack(pady=3)
 
-    tk.Button(delivery_frame, text="Update Delivery Status", command=update_del).pack(pady=3)
-
-    # INCIDENT
-    incident_frame = create_section(row1, "Incident")
+    # ===== INCIDENT =====
+    incident_frame = create_section("Incident")
 
     i_ship = add_field(incident_frame, "Shipment ID")
     i_type = add_field(incident_frame, "Issue Type")
     i_desc = add_field(incident_frame, "Description")
 
-    def add_issue():
-        try:
-            record_issue(
-                safe_int(i_ship.get(), "Shipment ID"),
-                i_type.get(),
-                i_desc.get()
-            )
-            messagebox.showinfo("Success", "Incident Added")
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
+    tk.Button(incident_frame, text="Add Incident",
+              command=lambda: record_issue(
+                  safe_int(i_ship.get(),'Shipment ID'), i_type.get(), i_desc.get()
+              )).pack(pady=3)
 
-    tk.Button(incident_frame, text="Add Incident", command=add_issue).pack(pady=3)
-
-    # ================= ROW 2 =================
-    row2 = tk.Frame(main)
-    row2.pack(pady=10)
-
-    # INVENTORY
-    inv_frame = create_section(row2, "Inventory")
+    # ===== INVENTORY =====
+    inv_frame = create_section("Inventory")
 
     iname = add_field(inv_frame, "Item Name")
     qty = add_field(inv_frame, "Quantity")
@@ -152,18 +138,18 @@ def launch_ui():
     hub2 = add_field(inv_frame, "Warehouse ID")
 
     tk.Button(inv_frame, text="Add Item",
-              command=lambda: add_item(iname.get(),
-                                       safe_int(qty.get(), "Quantity"),
-                                       safe_int(reorder.get(), "Reorder"),
-                                       safe_int(hub2.get(), "Warehouse ID"))
-              ).pack(pady=3)
+              command=lambda: add_item(
+                  iname.get(),
+                  safe_int(qty.get(),'Quantity'),
+                  safe_int(reorder.get(),'Reorder'),
+                  safe_int(hub2.get(),'Warehouse ID')
+              )).pack(pady=3)
 
     tk.Button(inv_frame, text="View Inventory",
-              command=lambda: display_rows(view_inventory())
-              ).pack(pady=3)
+              command=lambda: display_rows(view_inventory())).pack(pady=3)
 
-    # VEHICLE
-    veh_frame = create_section(row2, "Vehicle")
+    # ===== VEHICLE =====
+    veh_frame = create_section("Vehicle")
 
     cap = add_field(veh_frame, "Capacity")
     stat = add_field(veh_frame, "Status")
@@ -172,13 +158,14 @@ def launch_ui():
 
     tk.Button(veh_frame, text="Add Vehicle",
               command=lambda: register_vehicle(
-                  safe_int(cap.get(), "Capacity"),
-                  stat.get(), maint.get(),
-                  safe_int(hub3.get(), "Hub ID")
+                  safe_int(cap.get(),'Capacity'),
+                  stat.get(),
+                  maint.get(),
+                  safe_int(hub3.get(),'Hub ID')
               )).pack(pady=3)
 
-    # DRIVER
-    drv_frame = create_section(row2, "Driver")
+    # ===== DRIVER =====
+    drv_frame = create_section("Driver")
 
     dname = add_field(drv_frame, "Driver Name")
     lic = add_field(drv_frame, "License")
@@ -186,34 +173,25 @@ def launch_ui():
 
     tk.Button(drv_frame, text="Add Driver",
               command=lambda: register_driver(dname.get(), lic.get(), shift.get())
-              ).pack(pady=3)
+    ).pack(pady=3)
 
-    # PAYMENT (NEW SECTION)
-    payment_frame = create_section(row2, "Payment")
+    # ===== PAYMENT =====
+    pay_frame = create_section("Payment")
 
-    p_ship = add_field(payment_frame, "Shipment ID")
-    cost = add_field(payment_frame, "Transport Cost")
-    extra = add_field(payment_frame, "Extra Charges")
-    status = add_field(payment_frame, "Payment Status (PAID/PENDING/FAILED)")
+    p_ship = add_field(pay_frame, "Shipment ID")
+    cost = add_field(pay_frame, "Transport Cost")
+    extra = add_field(pay_frame, "Extra Charges")
+    status = add_field(pay_frame, "Payment Status")
 
-    def add_pay():
-        try:
-            add_payment(
-                safe_int(p_ship.get(), "Shipment ID"),
-                float(cost.get()),
-                float(extra.get()),
-                status.get()
-            )
-            messagebox.showinfo("Success", "Payment Added")
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
+    tk.Button(pay_frame, text="Add Payment",
+              command=lambda: add_payment(
+                  safe_int(p_ship.get(),'Shipment ID'),
+                  float(cost.get()),
+                  float(extra.get()),
+                  status.get()
+              )).pack(pady=3)
 
-    tk.Button(payment_frame, text="Add Payment", command=add_pay).pack(pady=3)
-
-    # REPORTS
-    report_frame = tk.LabelFrame(root, text="Reports", padx=10, pady=10)
-    report_frame.pack(pady=10)
-
+    # ===== REPORT BUTTONS =====
     tk.Button(report_frame, text="Shipment Summary",
               command=lambda: display_rows(shipment_status_report())).pack(pady=2)
 
